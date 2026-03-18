@@ -2,6 +2,8 @@
 
 Progressive reveal (fragments) for [marimo](https://marimo.io) slide presentations — like [RISE](https://rise.readthedocs.io/) fragments, but for marimo.
 
+![Demo of fragment slides](demo.gif)
+
 ## What it does
 
 In marimo's slide layout, content normally appears all at once per slide. **Fragment slides** lets you reveal content step-by-step using arrow keys:
