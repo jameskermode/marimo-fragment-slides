@@ -26,7 +26,7 @@ Works with text, math (KaTeX), code blocks, plots, and marimo widgets.
        html_head_file="fragment-slides.html",
    )
    ```
-4. Run the demo: `marimo run demo.py`
+4. Run the demo: `marimo run --sandbox demo.py`
 
 ## Usage
 
