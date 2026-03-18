@@ -1,0 +1,446 @@
+<style>
+/* ===========================================
+   Fragment Slides for Marimo
+   RISE-like progressive reveal in slide mode
+   =========================================== */
+
+/* --- Presentation typography (run mode only) --- */
+
+body.marimo-run-mode h1, body.marimo-run-mode .markdown h1 {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    font-size: 2.6rem !important;
+    font-weight: 700 !important;
+    margin-bottom: 0.6em !important;
+    line-height: 1.2 !important;
+}
+
+body.marimo-run-mode h2, body.marimo-run-mode .markdown h2 {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    font-size: 2rem !important;
+    font-weight: 700 !important;
+    margin-top: 0.8em !important;
+    margin-bottom: 0.5em !important;
+}
+
+body.marimo-run-mode h3, body.marimo-run-mode .markdown h3 {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    font-size: 1.6rem !important;
+    font-weight: 600 !important;
+    margin-top: 0.6em !important;
+    margin-bottom: 0.4em !important;
+}
+
+body.marimo-run-mode span:not(code span):not(pre span):not(.katex span):not(.MathJax span) {
+    font-size: 1.5rem !important;
+    line-height: 1.5 !important;
+}
+
+body.marimo-run-mode code, body.marimo-run-mode code span, body.marimo-run-mode pre span {
+    font-size: 1.1rem !important;
+}
+
+body.marimo-run-mode ul, body.marimo-run-mode ol {
+    font-size: 1.4rem !important;
+    margin-left: 1.5em !important;
+}
+
+body.marimo-run-mode li {
+    font-size: 1.4rem !important;
+    line-height: 1.5 !important;
+    margin-bottom: 0.3em !important;
+}
+
+body.marimo-run-mode strong, body.marimo-run-mode b {
+    font-weight: 700 !important;
+}
+
+body.marimo-run-mode .MathJax, body.marimo-run-mode .katex, body.marimo-run-mode mjx-container {
+    font-size: 1.1em !important;
+}
+
+body.marimo-run-mode pre, body.marimo-run-mode code {
+    font-size: 1.1rem !important;
+}
+
+body.marimo-run-mode blockquote {
+    font-size: 1.25rem !important;
+    border-left: 4px solid #666 !important;
+    padding-left: 1em !important;
+    margin: 1em 0 !important;
+}
+
+body.marimo-run-mode [class*="prose"],
+body.marimo-run-mode [class*="prose"] .paragraph,
+body.marimo-run-mode .mo-label [class*="prose"],
+body.marimo-run-mode .mo-label [class*="prose"] .paragraph {
+    font-size: 1.3rem !important;
+    line-height: 1.4 !important;
+}
+
+body.marimo-run-mode input[type="range"],
+body.marimo-run-mode input[type="number"],
+body.marimo-run-mode input[type="text"],
+body.marimo-run-mode select {
+    font-size: 1.2rem !important;
+}
+
+body.marimo-run-mode [class*="marimo"],
+body.marimo-run-mode [class*="mo-"] {
+    font-size: 1.3rem !important;
+}
+
+body.marimo-run-mode .cell-output p,
+body.marimo-run-mode .mo-output p {
+    font-size: 1.4rem !important;
+    line-height: 1.5 !important;
+}
+
+body.marimo-run-mode .slide, body.marimo-run-mode [data-slide] {
+    padding: 1.5rem 2.5rem !important;
+}
+
+body.marimo-run-mode .swiper-slide {
+    align-items: flex-start !important;
+    align-content: flex-start !important;
+    justify-content: flex-start !important;
+}
+
+/* --- Fragment reveal animation --- */
+
+/* Hide slides with fragments until processed (prevents flash) */
+.swiper-slide.has-fragments:not(.fragments-processed) {
+    opacity: 0 !important;
+}
+.swiper-slide.has-fragments.fragments-processed {
+    opacity: 1 !important;
+    transition: opacity 0.1s ease-in-out;
+}
+
+/* Fragment visibility states */
+.fragment {
+    transition: opacity 0.3s ease-in-out;
+}
+.fragment.hidden {
+    opacity: 0 !important;
+    pointer-events: none;
+}
+.fragment.visible {
+    opacity: 1 !important;
+    pointer-events: auto;
+}
+</style>
+
+<script>
+// ===========================================
+//  Fragment Slides for Marimo
+//  Progressive reveal with arrow-key navigation
+// ===========================================
+
+// --- Mode detection ---
+// Only apply presentation styles in run/app mode, not edit mode.
+(function() {
+    function detectAndApplyMode() {
+        const isEditMode = window.location.search.includes('mode=edit') ||
+                          window.location.pathname.includes('/edit') ||
+                          document.querySelector('[data-testid="cell-editor"]') !== null ||
+                          document.querySelector('.cm-editor') !== null;
+
+        if (!isEditMode) {
+            document.body.classList.add('marimo-run-mode');
+        } else {
+            document.body.classList.remove('marimo-run-mode');
+        }
+    }
+
+    detectAndApplyMode();
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', detectAndApplyMode);
+    }
+    setTimeout(detectAndApplyMode, 500);
+    setTimeout(detectAndApplyMode, 1500);
+})();
+
+// --- Helper functions ---
+
+function isMathRendered(marimoTex) {
+    if (!marimoTex.shadowRoot) return false;
+    return marimoTex.shadowRoot.querySelector('.katex') !== null;
+}
+
+function injectShadowStyles(node, opacity) {
+    if (node.tagName === 'MARIMO-TEX' && node.shadowRoot) {
+        let style = node.shadowRoot.querySelector('#fragment-hide-style');
+        if (!style) {
+            style = document.createElement('style');
+            style.id = 'fragment-hide-style';
+            node.shadowRoot.prepend(style);
+        }
+        style.textContent = `:host, * { opacity: ${opacity} !important; transition: opacity 0.3s ease-in-out; }`;
+    }
+}
+
+function hideNodeImmediate(node) {
+    node.style.setProperty('opacity', '0', 'important');
+    if (node.tagName !== 'MARIMO-TEX') {
+        node.style.setProperty('visibility', 'hidden', 'important');
+    }
+}
+
+function processFragmentNode(node, fragmentId) {
+    node.dataset.fragmentGroup = fragmentId;
+    node.dataset.fragmentHidden = 'true';
+    hideNodeImmediate(node);
+
+    if (node.tagName === 'MARIMO-TEX') {
+        let attempts = 0;
+        const maxAttempts = 30;
+        function waitForRender() {
+            if (isMathRendered(node)) {
+                injectShadowStyles(node, 0);
+            } else if (attempts++ < maxAttempts) {
+                setTimeout(waitForRender, 100);
+            }
+        }
+        waitForRender();
+    }
+}
+
+function hideNode(node) {
+    node.style.setProperty('opacity', '0', 'important');
+    if (node.tagName === 'MARIMO-TEX') {
+        injectShadowStyles(node, 0);
+    } else {
+        node.style.setProperty('visibility', 'hidden', 'important');
+    }
+}
+
+function showNode(node) {
+    node.style.setProperty('opacity', '1', 'important');
+    if (node.tagName === 'MARIMO-TEX') {
+        injectShadowStyles(node, 1);
+    } else {
+        node.style.setProperty('visibility', 'visible', 'important');
+    }
+}
+
+// --- Fragment processing ---
+
+// Process <div class="fragment"> elements (simpler API)
+function processDivFragmentsIn(container) {
+    const root = container || document;
+    const divFragments = root.querySelectorAll('div.fragment:not([data-processed])');
+
+    divFragments.forEach((div) => {
+        div.dataset.processed = 'true';
+
+        if (!window._fragmentCounter) window._fragmentCounter = 0;
+        const fragmentId = 'fragment-' + window._fragmentCounter++;
+
+        // The div itself is the fragment — hide it and register it
+        processFragmentNode(div, fragmentId);
+
+        if (!window._fragmentGroups) window._fragmentGroups = {};
+        window._fragmentGroups[fragmentId] = [div];
+    });
+
+    return divFragments.length;
+}
+
+function processFragmentsIn(container) {
+    const root = container || document;
+    const starts = root.querySelectorAll('.fragment-start:not([data-processed])');
+    const divFragments = root.querySelectorAll('div.fragment:not([data-processed])');
+
+    if (container && container.classList.contains('swiper-slide')) {
+        const hasContent = container.querySelector('.markdown, .mo-output, p, h1, h2, h3');
+        if (!hasContent) return;
+
+        if (starts.length === 0 && divFragments.length === 0) {
+            container.classList.add('fragments-processed');
+            return;
+        } else {
+            container.classList.add('has-fragments');
+        }
+    }
+
+    // Process <div class="fragment"> elements
+    processDivFragmentsIn(container);
+
+    if (starts.length === 0) {
+        // Mark slide as processed even if only div fragments were found
+        if (container && container.classList.contains('swiper-slide')) {
+            container.classList.add('fragments-processed');
+        }
+        return;
+    }
+
+    starts.forEach((startMarker) => {
+        startMarker.dataset.processed = 'true';
+
+        if (!window._fragmentCounter) window._fragmentCounter = 0;
+        const fragmentIndex = window._fragmentCounter++;
+
+        let startContainer = startMarker;
+        while (startContainer.parentNode &&
+               startContainer.parentNode.tagName === 'SPAN' &&
+               startContainer.parentNode.classList.contains('paragraph')) {
+            startContainer = startContainer.parentNode;
+        }
+
+        let endMarker = null;
+        let sibling = startContainer.nextElementSibling;
+        const contentNodes = [];
+
+        while (sibling) {
+            const endInside = sibling.querySelector('.fragment-end');
+            if (endInside) {
+                endMarker = endInside;
+                break;
+            }
+            if (sibling.classList && sibling.classList.contains('fragment-end')) {
+                endMarker = sibling;
+                break;
+            }
+            contentNodes.push(sibling);
+            sibling = sibling.nextElementSibling;
+        }
+
+        if (endMarker && contentNodes.length > 0) {
+            const fragmentId = 'fragment-' + fragmentIndex;
+
+            contentNodes.forEach(node => {
+                processFragmentNode(node, fragmentId);
+            });
+
+            if (!window._fragmentGroups) window._fragmentGroups = {};
+            window._fragmentGroups[fragmentId] = contentNodes;
+
+            startMarker.style.visibility = 'hidden';
+            startMarker.style.fontSize = '0';
+            if (startContainer !== startMarker) {
+                startContainer.style.visibility = 'hidden';
+                startContainer.style.fontSize = '0';
+            }
+        }
+    });
+
+    if (container && container.classList.contains('swiper-slide')) {
+        container.classList.add('fragments-processed');
+    }
+}
+
+// --- Slide observer ---
+
+function setupSlideObserver() {
+    const swiperWrapper = document.querySelector('.swiper-wrapper');
+    if (!swiperWrapper) {
+        setTimeout(setupSlideObserver, 50);
+        return;
+    }
+
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            mutation.addedNodes.forEach((node) => {
+                if (node.nodeType === 1 && node.classList.contains('swiper-slide')) {
+                    let retries = 0;
+                    const maxRetries = 20;
+                    function tryProcess() {
+                        processFragmentsIn(node);
+                        if (!node.classList.contains('fragments-processed') && retries++ < maxRetries) {
+                            setTimeout(tryProcess, 100);
+                        }
+                    }
+                    tryProcess();
+                }
+            });
+        });
+    });
+
+    observer.observe(swiperWrapper, { childList: true });
+
+    document.querySelectorAll('.swiper-slide').forEach(slide => {
+        processFragmentsIn(slide);
+    });
+}
+
+setupSlideObserver();
+
+function processAllUnprocessedSlides() {
+    document.querySelectorAll('.swiper-slide:not(.fragments-processed)').forEach(slide => {
+        processFragmentsIn(slide);
+    });
+}
+
+document.addEventListener('click', () => {
+    setTimeout(processAllUnprocessedSlides, 50);
+    setTimeout(processAllUnprocessedSlides, 200);
+});
+
+setInterval(processAllUnprocessedSlides, 500);
+
+// --- Keyboard navigation ---
+
+function isNodeConnected(node) {
+    return node && node.isConnected;
+}
+
+function getActiveFragmentGroups() {
+    if (!window._fragmentGroups) return [];
+
+    const activeGroups = [];
+    const groups = Object.keys(window._fragmentGroups);
+
+    for (const groupId of groups) {
+        const nodes = window._fragmentGroups[groupId];
+        if (nodes.length === 0 || !isNodeConnected(nodes[0])) {
+            delete window._fragmentGroups[groupId];
+            continue;
+        }
+
+        const parentSlide = nodes[0].closest('.swiper-slide');
+        if (parentSlide) {
+            const slideRect = parentSlide.getBoundingClientRect();
+            if (slideRect.left >= -100 && slideRect.left < window.innerWidth) {
+                activeGroups.push({ groupId, nodes });
+            }
+        }
+    }
+
+    return activeGroups;
+}
+
+document.addEventListener('keydown', function(e) {
+    processAllUnprocessedSlides();
+
+    if (e.code === 'ArrowRight') {
+        const activeGroups = getActiveFragmentGroups();
+
+        for (const { nodes } of activeGroups) {
+            if (nodes[0].dataset.fragmentHidden === 'true') {
+                e.preventDefault();
+                e.stopPropagation();
+                nodes.forEach(node => {
+                    showNode(node);
+                    node.dataset.fragmentHidden = 'false';
+                });
+                return;
+            }
+        }
+    } else if (e.code === 'ArrowLeft') {
+        const activeGroups = getActiveFragmentGroups();
+
+        for (let i = activeGroups.length - 1; i >= 0; i--) {
+            const { nodes } = activeGroups[i];
+            if (nodes[0].dataset.fragmentHidden === 'false') {
+                e.preventDefault();
+                e.stopPropagation();
+                nodes.forEach(node => {
+                    hideNode(node);
+                    node.dataset.fragmentHidden = 'true';
+                });
+                return;
+            }
+        }
+    }
+}, true);
+</script>
